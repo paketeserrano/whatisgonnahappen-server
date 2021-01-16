@@ -11,7 +11,7 @@ user_video_completion = db.Table('user_video_completion',
 )
 
 class User(UserMixin, db.Model,SerializerMixin):
-	serialize_only = ('id', 'username', 'email', 'role')
+	serialize_only = ('id', 'username', 'email', 'role','score')
 
 	id = db.Column(db.Integer, primary_key=True)
 	username = db.Column(db.String(64), index=True, unique=True)
@@ -20,6 +20,7 @@ class User(UserMixin, db.Model,SerializerMixin):
 	role = db.Column(db.String(128),default='admin')
 	completed_videos = db.relationship("Video", secondary=user_video_completion,backref=db.backref('completed_by_user'))
 	responses = db.relationship('Response', backref='user', lazy=True) # Collection of responses from this user
+	score = db.Column(db.Integer,default=0)
 
 	def set_password(self, password):
 		self.password_hash = generate_password_hash(password)
@@ -32,8 +33,8 @@ def load_user(id):
 	return User.query.get(int(id))
 
 playlist_video_map = db.Table('playlist_video_map',
-    db.Column('playlist_id', db.Integer, db.ForeignKey('playlist.id')),
-    db.Column('video_id', db.Integer, db.ForeignKey('video.id'))
+    db.Column('playlist_id', db.Integer, db.ForeignKey('playlist.id',ondelete="cascade")),
+    db.Column('video_id', db.Integer, db.ForeignKey('video.id', ondelete="cascade"))
 )
 
 class Playlist(db.Model,SerializerMixin):
@@ -48,7 +49,7 @@ class Video(db.Model,SerializerMixin):
 	serialize_only = ('id', 'name', 'youtube_id', 'published','questions')
 
 	id = db.Column(db.Integer, primary_key=True)
-	name = db.Column(db.String(120), unique=True, nullable=False)
+	name = db.Column(db.String(120), nullable=False)
 	youtube_id = db.Column(db.String(120), unique=True, nullable=False)
 	published = db.Column(db.Boolean, default=True, nullable=False) 
 	thumbnail = db.Column(db.String(120))
@@ -60,20 +61,20 @@ question_tag_map = db.Table('question_tag_map',
 )
 
 question_answer_map = db.Table('question_answer_map',
-    db.Column('question_id', db.Integer, db.ForeignKey('question.id')),
-    db.Column('answer_id', db.Integer, db.ForeignKey('answer.id'))
+    db.Column('question_id', db.Integer, db.ForeignKey('question.id', ondelete="cascade")),
+    db.Column('answer_id', db.Integer, db.ForeignKey('answer.id', ondelete="cascade"))
 )
 
 response_answer_map = db.Table('response_answer_map',
-    db.Column('response_id', db.Integer, db.ForeignKey('response.id')),
-    db.Column('answer_id', db.Integer, db.ForeignKey('answer.id'))
+    db.Column('response_id', db.Integer, db.ForeignKey('response.id', ondelete="cascade")),
+    db.Column('answer_id', db.Integer, db.ForeignKey('answer.id', ondelete="cascade"))
 )
 
 class Question(db.Model, SerializerMixin):
 	serialize_only = ('id', 'video_id','official_answer_id','statement','time_to_show','time_to_stop','answers','time_to_start', 'time_to_end')
 
 	id = db.Column(db.Integer, primary_key=True)
-	video_id = db.Column(db.Integer, db.ForeignKey('video.id'))
+	video_id = db.Column(db.Integer, db.ForeignKey('video.id', ondelete="cascade"))
 	official_answer_id = db.Column(db.Integer, db.ForeignKey('answer.id'))
 	statement = db.Column(db.String(300), nullable=False)
 	time_to_start = db.Column(db.Integer, nullable=False) # video second where the section for the question starts
@@ -103,10 +104,11 @@ class Response(db.Model, SerializerMixin):
 	user_id = db.Column(db.Integer, db.ForeignKey('user.id')) # User that answered this question
 	question_id = db.Column(db.Integer, db.ForeignKey('question.id'))
 	answer_id = db.Column(db.Integer, db.ForeignKey('answer.id'))  # This is the answer the user selected in his/her response
+	counter = db.Column(db.Integer, default=1) # Number of times a user responds a certain question with the same answer
 
-	__table_args__ = (
-		db.UniqueConstraint('user_id', 'question_id', name='unique_response'),
-	)
+	#__table_args__ = (
+	#	db.UniqueConstraint('user_id', 'question_id', name='unique_response'),
+	#)
 	
 	#TODO
 	#Comments
