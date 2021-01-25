@@ -71,7 +71,7 @@ response_answer_map = db.Table('response_answer_map',
 )
 
 class Question(db.Model, SerializerMixin):
-	serialize_only = ('id', 'video_id','official_answer_id','statement','time_to_show','time_to_stop','answers','time_to_start', 'time_to_end')
+	serialize_only = ('id', 'video_id','official_answer_id','statement','time_to_show','time_to_stop','answers','time_to_start', 'time_to_end','likes','no_likes')
 
 	id = db.Column(db.Integer, primary_key=True)
 	video_id = db.Column(db.Integer, db.ForeignKey('video.id', ondelete="cascade"))
@@ -84,6 +84,8 @@ class Question(db.Model, SerializerMixin):
 	answers = db.relationship('Answer', secondary=question_answer_map,backref=db.backref('questions'))  # Options presented to user as answers
 	responses = db.relationship('Response', backref='question', lazy=True) # Collection of responses to this question from the users	
 	tags = db.relationship("Tag", secondary=question_tag_map,backref=db.backref('questions'))
+	likes = db.Column(db.Integer, default=0) 
+	no_likes = db.Column(db.Integer, default=0) 
 
 class Answer(db.Model, SerializerMixin):
 	serialize_only = ('id','statement')

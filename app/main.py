@@ -43,9 +43,6 @@ def login():
 	email = data_received['email']
 	password = data_received['password']
 
-	print('email: ' + email)
-	print('password: ' + password)
-
 	'''
 	if current_user.is_authenticated:
 		print('current user id: ' + str(current_user.id))
@@ -57,7 +54,7 @@ def login():
 	if True: # This should contain the fields validations
 		user = User.query.filter_by(email=email).first()
 		if user is None:
-			print("No user faound")
+			print("No user found")
 			if not user.check_password(password):
 				print("Password is not correct")
 		if user is None or not user.check_password(password):
@@ -70,13 +67,7 @@ def login():
 
 @app.route('/logout')
 def logout():
-	print('current user id: ' + str(current_user.id))
-	print('username: ' + current_user.username)
-	print('email: ' + current_user.email)
 	logout_user()
-	#print('current user id: ' + str(current_user.id))
-	#print('username: ' + current_user.username)
-	#print('email: ' + current_user.email)
 	return jsonify('{"id":-1}')
 
 # ##################################" Login service ####################################
@@ -87,9 +78,6 @@ def register():
 	name = data_received['name']
 	email = data_received['email']
 	password = data_received['password']
-	print('email: ' + email)
-	print('password: ' + password)		
-	print('name: ' + name)	
 
 	user = User(username=name,email=email)
 	user.set_password(password)
@@ -106,7 +94,6 @@ def register():
 @login_required
 def getChannels():
 	channels = Channel.query.all()
-	print(i.to_dict() for i in channels)
 	return jsonify(channels=[i.to_dict() for i in channels])
 
 # ################################## Get the list of playlists for a certain channel (A playlist is a list of videos with a certain topic, like league round 1) ####################################
@@ -138,7 +125,6 @@ def getVideos():
 def getRandomVideo():
 	# This query will return a random video
 	video = db.session.query(Video).order_by(func.rand()).first() #Answer.query.order_by(func.rand()).first() #asc(Answer.id)).all()
-	print(video.to_dict())
 	return jsonify(video=video.to_dict())
 
 # ################################## Post the response to a question  ####################################
@@ -157,15 +143,10 @@ def postResponse():
 	if question.official_answer_id == answerId:
 		points = 20
 
-	print(str(points) + ' more points for the user!')
 	try:
-		print("current_user.id: " + str(current_user.id))
-		print("questionId: " + str(questionId))
-		print("answerId: " + str(answerId))
 		user = User.query.filter_by(id=current_user.id).first()
 		user.score += points
 
-		print("Before adding response")
 		# Check if user already answered this question with the same answer
 		# response = Response.query.filter_by(user_id=current_user.id, question_id=questionId, answer_id=answerId).first()
 		responseExists = db.session.query(Response.query.filter(Response.user_id == current_user.id,Response.question_id==questionId,Response.answer_id==answerId).exists()).scalar()
@@ -181,11 +162,7 @@ def postResponse():
 		db.session.add(response)		
 	except exc.IntegrityError:
 		print("This most likely happened because of an integrity error when the user answers the same question more than once")
-		print('user.score: ' + str(user.score))
 		return jsonify(score=user.score, status='500')
-
-	print("Returning correct answer")
-	print('user.score: ' + str(user.score))
 
 	db.session.commit()
 	return jsonify(score=user.score, status='200')
@@ -193,9 +170,7 @@ def postResponse():
 @app.route('/updateVideos', methods=['POST'])
 @login_required
 def updateVideo():
-	print("--------------------- INSIDE UPDATE VIDEO")
 	data_received = json.loads(request.data)
-	print(data_received)
 	updatedVideosJson = json.loads(data_received['videos'])
 	for updatedVideo in updatedVideosJson:
 		video = Video.query.filter_by(id=updatedVideo['id']).first()
@@ -212,9 +187,6 @@ def updateVideo():
 @login_required
 def addVideo():
 	videoJson = json.loads(request.data)
-	print("*------------------------*")
-	print(videoJson)
-	print("*------------------------*")
 	playlist = Playlist.query.filter_by(id=videoJson['playlist_id']).first()
 	video = Video(name=videoJson['name'],youtube_id=videoJson['youtube_id'],published=True)
 	questionsJson = videoJson['questions']
@@ -232,7 +204,6 @@ def addVideo():
 				answer = Answer(statement=statement)
 
 			if int(questionJson['official_answer']) == answerIndex:
-				print("Assigning official answer")
 				question.official_answer = answer
 
 			question.answers.append(answer)
@@ -245,13 +216,32 @@ def addVideo():
 	db.session.commit()
 
 	return {}	
+
+################################### Add a like to the question ####################################
+@app.route('/likeQuestion', methods=['POST'])
+@login_required
+def likeQuestion():
+	likeInfo = json.loads(request.data)
+	question = Question.query.filter_by(id=likeInfo['id']).first()
+	if likeInfo['type'] == 'like':
+		if question.likes != None:
+			question.likes += 1
+		else:
+			question.likes = 1
+	elif likeInfo['type'] == 'no_like':
+		if question.no_likes != None:
+			question.no_likes += 1
+		else:
+			question.no_likes = 1
+
+	db.session.commit()
+	return {}
   
 if __name__ == "__main__":
 	parser = ArgumentParser()
 	parser.add_argument('-db')
 	args = parser.parse_args()
 	dbaction = args.db
-	print(dbaction)
 	if dbaction == 'init':
 		initDB()
 	elif dbaction == 'recreate':
