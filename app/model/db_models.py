@@ -112,10 +112,20 @@ class Response(db.Model, SerializerMixin):
 	#	db.UniqueConstraint('user_id', 'question_id', name='unique_response'),
 	#)
 	
-	#TODO
-	#Comments
-	#user
-	#time of response
+class Most_point_challenge(db.Model, SerializerMixin):
+	serialize_only = ('id', 'challenger_id', 'challenged_id', 'challenged','challenger','challenger_points', 'challenged_points', 'start_time', 'end_time', 'creation_time', 'duration', 'state')
+	id = db.Column(db.Integer, primary_key=True)
+	challenger_id = db.Column(db.Integer, db.ForeignKey('user.id')) 	
+	challenged_id = db.Column(db.Integer, db.ForeignKey('user.id')) 
+	challenged = db.relationship("User", foreign_keys=[challenged_id])
+	challenger = db.relationship("User", foreign_keys=[challenger_id])
+	challenger_points = db.Column(db.Integer, default=0)
+	challenged_points = db.Column(db.Integer, default=0)
+	duration = db.Column(db.Integer, default=1)   # In hours
+	start_time = db.Column(db.DateTime)
+	end_time = db.Column(db.DateTime)
+	creation_time = db.Column(db.DateTime)
+	state = db.Column(db.String(100), nullable=False)
 
 
 

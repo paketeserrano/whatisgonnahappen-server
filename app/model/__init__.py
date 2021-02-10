@@ -4,6 +4,8 @@ from flask_login import LoginManager
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://adminfan:admin@localhost/happen'
+#app.config['SQLALCHEMY_ECHO'] = True
+#app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 db = SQLAlchemy(app)
 
 login = LoginManager(app)

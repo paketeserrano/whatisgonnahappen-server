@@ -1,29 +1,22 @@
 from model import app,db
-from model.db_models import Playlist,Video, Question,Answer,Tag,Response, User
+from model.db_models import Playlist,Video, Question,Answer,Tag,Response, User, Most_point_challenge
 from argparse import ArgumentParser
 from flask import json, jsonify,request,session
 from flask_login import current_user, login_user, logout_user, login_required
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql import exists
 import sys
-from sqlalchemy import exc,desc,asc
+from sqlalchemy import exc,desc,asc,and_, or_, not_
 from  sqlalchemy.sql.expression import func
+from datetime import datetime, timedelta
+from challengeManager import ChallengeManager
 
+
+challengeManager = ChallengeManager()
 
 def initDB():
 	db.create_all()
 	db.session.commit()
-	'''
-	poolfails = Playlist(name="poolfails")
-	db.session.add(poolfails)
-
-	user1 = User(email='pass@aol.com',username='pass',password_hash='pbkdf2:sha256:150000$RbhTd0tM$f5df1150b3a79af48250bc6d9cb3aebc057f215f3c19a26e8c5106ad49e58642')
-	user2 = User(email='pass1@aol.com',username='pass1',password_hash='pbkdf2:sha256:150000$RbhTd0tM$f5df1150b3a79af48250bc6d9cb3aebc057f215f3c19a26e8c5106ad49e58642')
-	db.session.add(user1)
-	db.session.add(user2)
-
-	db.session.commit()
-	'''
 
 def recreateDB():
 	db.drop_all()
@@ -42,6 +35,8 @@ def login():
 	
 	email = data_received['email']
 	password = data_received['password']
+
+	print('email: ', email)
 
 	'''
 	if current_user.is_authenticated:
@@ -236,15 +231,102 @@ def likeQuestion():
 
 	db.session.commit()
 	return {}
-  
+
+################################### Create most points challenge ####################################
+@app.route('/createMostPointsChallenge', methods=['POST'])
+@login_required
+def createMostPointsChallenge():
+	challengeInfo = json.loads(request.data)
+	user = User.query.filter_by(username=challengeInfo['challenged_username']).first()
+	if(user == None):
+		return jsonify(code='USER_NOT_FOUND')
+
+	print("current_user.id: " + str(current_user.id))
+	print("user.id: " + str(user.id))
+
+	#datetime.strptime(datetime.now(), '%Y-%m-%d %H:%M:%S')
+	creationTime = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+	challenge = Most_point_challenge(challenger_id=current_user.id, challenged_id=user.id, challenger_points=0,challenged_points=0,state='INITIAL', creation_time=creationTime)
+	db.session.add(challenge)
+	db.session.commit()
+	return jsonify(code='SUCCESS')
+
+################################### Save most points challenge ####################################
+@app.route('/saveMostPointsChallenge', methods=['POST'])
+@login_required
+def saveMostPointsChallenge():
+	challengeInfo = json.loads(request.data)
+	challenge = Most_point_challenge.query.filter_by(id=challengeInfo['id']).first()
+	challenge.challenger_id = challengeInfo['challenger']['id']
+	challenge.challenged_id = challengeInfo['challenged']['id']
+	challenge.challenger_points = challengeInfo['challenger_points']
+	challenge.challenged_points = challengeInfo['challenged_points']
+	challenge.duration = 1  # For now I set it to 1h by default
+	challenge.start_time = datetime.strptime(challengeInfo['start_time'], '%Y-%m-%d %H:%M:%S')
+	challenge.end_time = datetime.strptime(challengeInfo['end_time'], '%Y-%m-%d %H:%M:%S')
+	challenge.state = challengeInfo['state']
+
+	db.session.commit()
+
+	return jsonify(code='SUCCESS')
+
+################################### Accept most points challenge ####################################
+@app.route('/acceptMostPointsChallenge', methods=['POST'])
+@login_required
+def acceptMostPointsChallenge():
+	challengeInfo = json.loads(request.data)
+	challenge = Most_point_challenge.query.filter_by(id=challengeInfo['id']).first()
+	if challenge != None:
+		print(challengeInfo)
+		if challenge.challenged.id == challengeInfo['challenged']['id'] or challenge.challenger.id == challengeInfo['challenger']['id']:
+			challenge.state = 'STARTED'
+			now = datetime.now()
+			challenge.start_time = now.strftime('%Y-%m-%d %H:%M:%S')
+			increase = timedelta(seconds = 20)#hours = 1)
+			end = now + increase
+			challenge.end_time = end.strftime('%Y-%m-%d %H:%M:%S')
+			db.session.commit()
+			return jsonify(code='SUCCESS')
+		else:
+			return jsonify(code='WRONG_USER')		
+	else:
+		return jsonify(code='CHALLENGE_NOT_FOUND')
+
+################################### Get user most point challenges that are active ####################################
+@app.route('/getUserActiveMostPointChallenges', methods=['GET'])
+#@login_required
+def getUserActiveMostPointChallenges():
+	username = request.args.get('usr')
+	user = User.query.filter_by(username=username).first()
+	print('userId: ' + str(user.id))
+	challenges = db.session.query(Most_point_challenge).filter(
+		and_( Most_point_challenge.state == 'INITIAL',
+			or_(
+				Most_point_challenge.challenger_id == user.id,
+				Most_point_challenge.challenged_id == user.id
+			)
+		)
+	).all()
+
+	for i in challenges:
+		print("-------------------")
+		print(i.to_dict())
+		print("-------------------")
+
+	return jsonify(challenges=[i.to_dict() for i in challenges])
+
+ ################################### Main #################################### 
 if __name__ == "__main__":
 	parser = ArgumentParser()
 	parser.add_argument('-db')
 	args = parser.parse_args()
 	dbaction = args.db
+	print("dbaction: ",dbaction)
 	if dbaction == 'init':
 		initDB()
 	elif dbaction == 'recreate':
-		recreateDB()
+		recreateDB()		
 
-	app.run(debug=False, host='0.0.0.0')
+	app.run(debug=True)
+	# Use below when testing on real phone in home network
+	#app.run(debug=False, host='0.0.0.0')
