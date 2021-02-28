@@ -17,6 +17,7 @@ class ChallengeManager:
 	#	- Check if the challenge has finished ( got to the end time )
 	# For each most point challenge in INITIAL state:
 	#   - Check if it has been in this state for more than 24h. If so, then the request will expire and the challenge set to state DISCARDED
+	# TODO: If the creation date doesn't exist then DISCARD the challenge
 	def manageMostPointChallenge(self):
 
 		while True:
@@ -38,13 +39,15 @@ class ChallengeManager:
 
 			for challenge in challenges:
 				if challenge.state == 'STARTED':
-					if challenge.end_time > currentTime:
+					print('challenge.end_time: ' + challenge.end_time.strftime("%d/%m/%Y %H:%M:%S"))
+					print('currentTime: ' + currentTime.strftime("%d/%m/%Y %H:%M:%S"))
+					if challenge.end_time < currentTime:
 						challenge.state = 'FINISHED'
 						print('Change the challenge to FINISHED')
 
 				elif challenge.state == 'INITIAL':					
 					timediff = currentTime - challenge.creation_time
-					if timediff >= timedelta(minutes=1):
+					if timediff >= timedelta(minutes=3):
 						challenge.state = 'DISCARDED'
 						print('Change the challenge to DISCARDED')
 

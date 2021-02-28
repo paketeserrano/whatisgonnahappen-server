@@ -37,23 +37,15 @@ playlist_video_map = db.Table('playlist_video_map',
     db.Column('video_id', db.Integer, db.ForeignKey('video.id', ondelete="cascade"))
 )
 
-class Playlist(db.Model,SerializerMixin):
-	serialize_only = ('id', 'name', 'published')
+playlist_tag_map = db.Table('playlist_tag_map',
+    db.Column('playlist_id', db.Integer, db.ForeignKey('playlist.id')),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'))
+)
 
-	id = db.Column(db.Integer, primary_key=True)
-	name = db.Column(db.String(120), nullable=False, unique=True)
-	published = db.Column(db.Boolean, default=True, nullable=False)
-	videos = db.relationship("Video", secondary=playlist_video_map,backref=db.backref('playlists'))
-
-class Video(db.Model,SerializerMixin):
-	serialize_only = ('id', 'name', 'youtube_id', 'published','questions')
-
-	id = db.Column(db.Integer, primary_key=True)
-	name = db.Column(db.String(120), nullable=False)
-	youtube_id = db.Column(db.String(120), unique=True, nullable=False)
-	published = db.Column(db.Boolean, default=True, nullable=False) 
-	thumbnail = db.Column(db.String(120))
-	questions = db.relationship('Question', backref='video', lazy=True)
+video_tag_map = db.Table('video_tag_map',
+    db.Column('video_id', db.Integer, db.ForeignKey('video.id')),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tag.id'))
+)
 
 question_tag_map = db.Table('question_tag_map',
     db.Column('question_id', db.Integer, db.ForeignKey('question.id')),
@@ -69,6 +61,27 @@ response_answer_map = db.Table('response_answer_map',
     db.Column('response_id', db.Integer, db.ForeignKey('response.id', ondelete="cascade")),
     db.Column('answer_id', db.Integer, db.ForeignKey('answer.id', ondelete="cascade"))
 )
+
+class Playlist(db.Model,SerializerMixin):
+	serialize_only = ('id', 'name', 'published')
+
+	id = db.Column(db.Integer, primary_key=True)
+	name = db.Column(db.String(120), nullable=False, unique=True)
+	published = db.Column(db.Boolean, default=True, nullable=False)
+	videos = db.relationship("Video", secondary=playlist_video_map,backref=db.backref('playlists'))
+	tags = db.relationship("Tag", secondary=playlist_tag_map,backref=db.backref('playlists'))
+
+class Video(db.Model,SerializerMixin):
+	serialize_only = ('id', 'name', 'youtube_id', 'published','questions', 'channel_id')
+
+	id = db.Column(db.Integer, primary_key=True)
+	name = db.Column(db.String(120), nullable=False)
+	youtube_id = db.Column(db.String(120), unique=True, nullable=False)
+	published = db.Column(db.Boolean, default=True, nullable=False) 
+	thumbnail = db.Column(db.String(120))
+	questions = db.relationship('Question', backref='video', lazy=True)
+	tags = db.relationship("Tag", secondary=video_tag_map,backref=db.backref('videos'))
+	channel_id = db.Column(db.String(120))
 
 class Question(db.Model, SerializerMixin):
 	serialize_only = ('id', 'video_id','official_answer_id','statement','time_to_show','time_to_stop','answers','time_to_start', 'time_to_end','likes','no_likes')
@@ -98,7 +111,7 @@ class Answer(db.Model, SerializerMixin):
 class Tag(db.Model, SerializerMixin):
 
 	id = db.Column(db.Integer, primary_key=True)
-	name = db.Column(db.String(30), nullable=False)	
+	name = db.Column(db.String(30), nullable=False, unique=True)	
 
 class Response(db.Model, SerializerMixin):
 
