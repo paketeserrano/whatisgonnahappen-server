@@ -15,7 +15,7 @@ import googleapiclient.discovery
 import re
 
 
-challengeManager = ChallengeManager()
+#challengeManager = ChallengeManager()
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 api_service_name = "youtube"
@@ -146,8 +146,10 @@ def postResponse():
 	answerId = int(data_received['answerId'])
 	question = Question.query.filter_by(id=questionId).first()	
 	points = 10
+	answer_is_right = False
 	if question.official_answer_id == answerId:
 		points = 20
+		answer_is_right = True
 
 	try:
 		user = User.query.filter_by(id=current_user.id).first()
@@ -180,7 +182,7 @@ def postResponse():
 			response.counter += 1
 		else:
 			# Create new response
-			response = Response(user_id=current_user.id, question_id=questionId, answer_id=answerId)
+			response = Response(user_id=current_user.id, question_id=questionId, answer_id=answerId, is_right = answer_is_right)
 			
 		db.session.add(response)		
 	except exc.IntegrityError:
@@ -426,7 +428,7 @@ def acceptMostPointsChallenge():
 
 ################################### Get user most point challenges that are active ####################################
 @app.route('/getUserActiveMostPointChallenges', methods=['GET'])
-#@login_required
+@login_required
 def getUserActiveMostPointChallenges():
 	username = request.args.get('usr')
 	user = User.query.filter_by(username=username).first()
@@ -496,7 +498,7 @@ def getUserCompletedMostPointChallenges():
 
 ################################### Get user names suggestions based on pattern ####################################
 @app.route('/getUsernameSuggestions', methods=['GET'])
-#@login_required
+@login_required
 def getUsernameSuggestions():
 	pattern = request.args.get('pattern')
 	print('pattern: ' + pattern)
@@ -511,7 +513,39 @@ def getUsernameSuggestions():
 
 	return jsonify(usernames=[i.to_dict() for i in usernames])
 
- ################################### Main #################################### 
+################################### Get user names suggestions based on pattern ####################################
+@app.route('/getUserStats', methods=['GET'])
+@login_required
+def getUserStats():
+	userResponses = Response.query.filter_by(user_id=current_user.id).all();
+	numQuestionsAnswered = len(userResponses)
+	numRightQuestions = 0
+	for response in userResponses:
+		if response.is_right:
+			numRightQuestions += 1
+
+	numChallengesWon = db.session.query(Most_point_challenge).filter(
+		or_(
+			and_(
+				Most_point_challenge.challenger_id == current_user.id,
+				Most_point_challenge.challenger_points > Most_point_challenge.challenged_points
+			),
+			and_(
+				Most_point_challenge.challenged_id == current_user.id,
+				Most_point_challenge.challenged_points > Most_point_challenge.challenger_points				
+			)
+		)
+	).count()
+
+	response = {}
+	response['num_questions_answered'] = numQuestionsAnswered
+	response['num_right_responses'] = numRightQuestions
+	response['num_challenges_won'] = numChallengesWon
+
+	print(response)
+	return jsonify(stats=response)
+
+################################### Main #################################### 
 if __name__ == "__main__":
 	parser = ArgumentParser()
 	parser.add_argument('-db')

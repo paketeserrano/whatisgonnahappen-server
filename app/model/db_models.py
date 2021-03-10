@@ -120,6 +120,7 @@ class Response(db.Model, SerializerMixin):
 	question_id = db.Column(db.Integer, db.ForeignKey('question.id'))
 	answer_id = db.Column(db.Integer, db.ForeignKey('answer.id'))  # This is the answer the user selected in his/her response
 	counter = db.Column(db.Integer, default=1) # Number of times a user responds a certain question with the same answer
+	is_right = db.Column(db.Boolean, default=False, nullable=False)
 
 	#__table_args__ = (
 	#	db.UniqueConstraint('user_id', 'question_id', name='unique_response'),
