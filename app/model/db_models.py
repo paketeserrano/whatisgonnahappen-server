@@ -82,6 +82,8 @@ class Video(db.Model,SerializerMixin):
 	questions = db.relationship('Question', backref='video', lazy=True)
 	tags = db.relationship("Tag", secondary=video_tag_map,backref=db.backref('videos'))
 	channel_id = db.Column(db.String(120))
+	not_embeddable = db.Column(db.Boolean, default=False, nullable=False)
+	is_age_restricted = db.Column(db.Boolean, default=False, nullable=False)
 
 class Question(db.Model, SerializerMixin):
 	serialize_only = ('id', 'video_id','official_answer_id','statement','time_to_show','time_to_stop','answers','time_to_start', 'time_to_end','likes','no_likes')

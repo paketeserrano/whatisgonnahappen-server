@@ -15,7 +15,7 @@ import googleapiclient.discovery
 import re
 
 
-#challengeManager = ChallengeManager()
+challengeManager = ChallengeManager()
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 api_service_name = "youtube"
@@ -120,17 +120,49 @@ def getPlaylists():
 def getVideos():	
 	playlistId = request.args.get('plid')
 	videos = Video.query.filter(Video.playlists.any(id=playlistId)).all()
-	#for video in videos:
-	#	question = Response.query.filter_by(user_id=current_user.id)
 		
 	return jsonify(videos=[i.to_dict() for i in videos])
 
-# ################################## Get a random video  ####################################
+# ################################## Get a random video that is embedable and not age restricted ####################################
 @app.route('/getRandomVideo', methods=['GET'])
 #@login_required
-def getRandomVideo():
-	# This query will return a random video
-	video = db.session.query(Video).order_by(func.rand()).first() #Answer.query.order_by(func.rand()).first() #asc(Answer.id)).all()
+def getRandomVideo():	
+	videoFound = False	
+	while not videoFound:
+		# This query will return a random video	
+		video = db.session.query(Video).filter(
+			and_(
+					Video.not_embeddable == False,
+					Video.is_age_restricted == False
+				)
+			).order_by(func.rand()).first() 
+
+		youtubeRequest = youtube.videos().list(
+			part="contentDetails",
+			id=video.youtube_id
+		)
+		
+		youtubeVideoResponse = youtubeRequest.execute()
+		if 'items' in youtubeVideoResponse:
+			youtubeResponseItems = youtubeVideoResponse['items']
+			if len(youtubeResponseItems) > 0:
+				if 'contentDetails' in youtubeResponseItems[0]:
+					youtubeResponseContentDetails = youtubeResponseItems[0]['contentDetails']
+					if 'contentRating' in youtubeResponseContentDetails and 'ytRating' in youtubeResponseContentDetails['contentRating']:
+						if youtubeResponseContentDetails['contentRating']['ytRating'] == 'ytAgeRestricted':
+							video.is_age_restricted = True	
+							db.session.commit()						
+							continue
+			else:
+				video.not_embeddable = True
+				db.session.commit()
+				continue
+
+		videoFound = True
+
+	print("------------ Response from youtube --------------------")
+	print(youtubeVideoResponse)
+	print("-------------------------------------------------------")
 	return jsonify(video=video.to_dict())
 
 # ################################## Post the response to a question  ####################################
@@ -229,10 +261,12 @@ def addVideo():
 		part="snippet",
 		id=videoJson['youtube_id']
 	)
+
 	youtubeVideoResponse = youtubeRequest.execute()
 	print("------------ Response from youtube --------------------")
 	print(youtubeVideoResponse)
 	print("-------------------------------------------------------")
+
 	# Add tags to video and create new playlists based on tag names and assign video to them
 	if 'items' in youtubeVideoResponse:
 		if len(youtubeVideoResponse['items']) > 0:
