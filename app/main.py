@@ -14,7 +14,6 @@ import os
 import googleapiclient.discovery
 import re
 
-
 challengeManager = ChallengeManager()
 
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
